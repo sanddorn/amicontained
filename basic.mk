@@ -152,14 +152,11 @@ tag: ## Create a new git tag to prepare to build a release.
 	git tag -sa $(VERSION) -m "$(VERSION)"
 	@echo "Run git push origin $(VERSION) to push your new tag to GitHub and trigger a release."
 
-REGISTRY := r.j3ss.co
+REGISTRY := sanddorn
 .PHONY: image
 image: ## Create the docker image from the Dockerfile.
 	@docker build --rm --force-rm -t $(REGISTRY)/$(NAME) .
 
-.PHONY: image-dev
-image-dev:
-	@docker build --rm --force-rm -f Dockerfile.dev -t $(REGISTRY)/$(NAME):dev .
 
 .PHONY: AUTHORS
 AUTHORS:

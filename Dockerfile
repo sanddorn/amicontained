@@ -1,5 +1,5 @@
 FROM golang:alpine as builder
-MAINTAINER Jessica Frazelle <jess@linux.com>
+MAINTAINER Nils Bokermann <nils.bokermann@bermuda.de>
 
 ENV PATH /go/bin:/usr/local/go/bin:$PATH
 ENV GOPATH /go
@@ -8,7 +8,7 @@ RUN	apk add --no-cache \
 	bash \
 	ca-certificates
 
-COPY . /go/src/github.com/genuinetools/amicontained
+COPY . /go/src/github.com/sanddorn/checkcapabilities
 
 RUN set -x \
 	&& apk add --no-cache --virtual .build-deps \
@@ -17,17 +17,17 @@ RUN set -x \
 		libc-dev \
 		libgcc \
 		make \
-	&& cd /go/src/github.com/genuinetools/amicontained \
+	&& cd /go/src/github.com/sanddorn/checkcapabilities \
 	&& make static \
-	&& mv amicontained /usr/bin/amicontained \
+	&& mv checkcapabilities /usr/bin/checkcapabilities \
 	&& apk del .build-deps \
 	&& rm -rf /go \
 	&& echo "Build complete."
 
 FROM alpine:latest
 
-COPY --from=builder /usr/bin/amicontained /usr/bin/amicontained
+COPY --from=builder /usr/bin/checkcapabilities /usr/bin/checkcapabilities
 COPY --from=builder /etc/ssl/certs/ /etc/ssl/certs
 
-ENTRYPOINT [ "amicontained" ]
+ENTRYPOINT [ "checkcapabilities" ]
 CMD [ "--help" ]

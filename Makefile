@@ -1,6 +1,6 @@
 # Setup name variables for the package/tool
-NAME := amicontained
-PKG := github.com/genuinetools/$(NAME)
+NAME := checkcapabilities
+PKG := github.com/sanddorn/$(NAME)
 
 CGO_ENABLED := 0
 

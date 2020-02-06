@@ -13,7 +13,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/genuinetools/amicontained/version"
+	"github.com/sanddorn/checkcapabilities/version"
 	"github.com/genuinetools/pkg/cli"
 	"github.com/jessfraz/bpfd/proc"
 	"github.com/sirupsen/logrus"
@@ -30,7 +30,10 @@ var (
 )
 
 func (i *arrayFlags) String() string {
-	return "foo"
+	if len(*i) == 0 {
+		return "All"
+	}
+	return i.String()
 }
 
 func (i *arrayFlags) Set(value string) error {
@@ -47,8 +50,8 @@ func contains(s []string, searchterm string) bool {
 func main() {
 	// Create a new cli program.
 	p := cli.NewProgram()
-	p.Name = "amicontained"
-	p.Description = "A container introspection tool"
+	p.Name = "checkcapabilities"
+	p.Description = "Check for capabilities "
 
 	// Set the GitCommit and Version.
 	p.GitCommit = version.GITCOMMIT

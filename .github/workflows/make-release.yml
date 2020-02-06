@@ -13,17 +13,9 @@ jobs:
         uses: docker://golang:latest
         with:
           args: make release
-      - name: upload assets
-        uses: docker://r.j3ss.co/github-dev
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          entrypoint: bash
-          args: -c "upload-assets ./cross/*"
       - name: update release body
-        uses: docker://r.j3ss.co/pepper
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          entrypoint: sh
-          args: -c "pepper release --repo $GITHUB_REPOSITORY -d --nouser"
+        uses: ncipollo/release-action@v1
+          with:
+            artifacts: "cross/*"
+            bodyFile: "Release.md"
+            token: ${{ secrets.GITHUB_TOKEN }}
