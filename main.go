@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -19,9 +21,28 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+type arrayFlags []string
+
+
 var (
 	debug bool
+	capabilitiesAllowedList arrayFlags
 )
+
+func (i *arrayFlags) String() string {
+	return "foo"
+}
+
+func (i *arrayFlags) Set(value string) error {
+	*i = append(*i, value)
+	return nil
+}
+
+func contains(s []string, searchterm string) bool {
+	i := sort.SearchStrings(s, searchterm)
+	return i < len(s) && s[i] == searchterm
+}
+
 
 func main() {
 	// Create a new cli program.
@@ -36,6 +57,7 @@ func main() {
 	// Setup the global flags.
 	p.FlagSet = flag.NewFlagSet("ship", flag.ExitOnError)
 	p.FlagSet.BoolVar(&debug, "d", false, "enable debug logging")
+	p.FlagSet.Var(&capabilitiesAllowedList, "pcaps", "Check for capabilities allowed.")
 
 	// Set the before function.
 	p.Before = func(ctx context.Context) error {
@@ -49,6 +71,8 @@ func main() {
 
 	// Set the main program action.
 	p.Action = func(ctx context.Context, args []string) error {
+
+		var errorString string = ""
 		// Container Runtime
 		runtime := proc.GetContainerRuntime(0, 0)
 		fmt.Printf("Container Runtime: %s\n", runtime)
@@ -91,6 +115,17 @@ func main() {
 					fmt.Printf("\t%s -> %s\n", k, strings.Join(v, " "))
 				}
 			}
+			if len(capabilitiesAllowedList) > 0 {
+				for captype, capability := range caps {
+					if captype == "BOUNDING" {
+						for _, singleCap := range capability {
+							if !contains(capabilitiesAllowedList, singleCap) {
+								errorString += "capability " + singleCap + " is not allowed.\n"
+							}
+						}
+					}
+				}
+			}
 		}
 
 		// Seccomp
@@ -103,6 +138,9 @@ func main() {
 		fmt.Println("Looking for Docker.sock")
 		getValidSockets("/")
 
+		if errorString != "" {
+			return errors.New(errorString)
+		}
 		return nil
 	}
 
