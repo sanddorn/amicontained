@@ -156,6 +156,7 @@ REGISTRY := sanddorn
 .PHONY: image
 image: ## Create the docker image from the Dockerfile.
 	@docker build --rm --force-rm -t $(REGISTRY)/$(NAME) .
+	@docker tag $(REGISTRY)/$(NAME) $(REGISTRY)/$(NAME):${VERSION}
 
 
 .PHONY: AUTHORS

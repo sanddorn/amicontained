@@ -9,3 +9,9 @@ jobs:
       - name: make image
         run: make image
         shell: bash
+      - name: push image to hub.docker.com
+        uses: elgohr/Publish-Docker-Github-Action@master
+          with:
+            name: sanddorn/checkcapabilities
+            username: ${{ secrets.DOCKER_USERNAME }}
+            password: ${{ secrets.DOCKER_PASSWORD }}

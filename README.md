@@ -2,7 +2,6 @@
 
 ![make-all](https://github.com/sanddorn/checkcapabilities/workflows/make%20all/badge.svg)
 ![make-image](https://github.com/sanddorn/checkcapabilities/workflows/make%20image/badge.svg)
-[![GoDoc](https://img.shields.io/badge/godoc-reference-5272B4.svg?style=for-the-badge)](https://godoc.org/github.com/genuinetools/amicontained)
 [![Github All Releases](https://img.shields.io/github/downloads/sanddorn/checkcapabilities/total.svg?style=for-the-badge)](https://github.com/sanddorn/checkcapabilities/releases)
 
 Tool to check if only certain capabilities (allowed capabilities) are available to a process. 
