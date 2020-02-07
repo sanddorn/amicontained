@@ -13,9 +13,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/sanddorn/checkcapabilities/version"
 	"github.com/genuinetools/pkg/cli"
 	"github.com/jessfraz/bpfd/proc"
+	"github.com/sanddorn/checkcapabilities/version"
 	"github.com/sirupsen/logrus"
 	"github.com/tv42/httpunix"
 	"golang.org/x/sys/unix"
@@ -23,9 +23,8 @@ import (
 
 type arrayFlags []string
 
-
 var (
-	debug bool
+	debug                   bool
 	capabilitiesAllowedList arrayFlags
 )
 
@@ -45,7 +44,6 @@ func contains(s []string, searchterm string) bool {
 	i := sort.SearchStrings(s, searchterm)
 	return i < len(s) && s[i] == searchterm
 }
-
 
 func main() {
 	// Create a new cli program.
