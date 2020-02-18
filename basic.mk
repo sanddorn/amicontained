@@ -144,7 +144,7 @@ bump-version: ## Bump the version in the version file. Set BUMP to [ patch | maj
 	@echo "Updating links to download binaries in README.md"
 	sed -i s/$(VERSION)/$(NEW_VERSION)/g README.md
 	git add VERSION.txt README.md
-#	git commit -vsam "Bump version to $(NEW_VERSION)"
+	git commit -vsam "Bump version to $(NEW_VERSION)"
 	@echo "Run make tag to create and push the tag for new version $(NEW_VERSION)"
 
 .PHONY: snapshot-version
@@ -157,7 +157,7 @@ snapshot-version: ## Bump the version in the version file. Set BUMP to [ patch |
 	@echo "Updating links to download binaries in README.md"
 	sed -i s/$(VERSION)/$(NEW_VERSION)-SNAPSHOT/g README.md
 	git add VERSION.txt README.md
-#	git commit -vsam "Bump version to $(NEW_VERSION)-SNAPSHOT"
+	git commit -vsam "Bump version to $(NEW_VERSION)-SNAPSHOT"
 	@echo "Run make tag to create and push the tag for new version $(NEW_VERSION)-SNAPSHOT"
 
 .PHONY: tag
