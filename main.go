@@ -26,6 +26,7 @@ type arrayFlags []string
 var (
 	debug                   bool
 	capabilitiesAllowedList arrayFlags
+	noCapabilitiesAllowed   bool
 )
 
 func (i *arrayFlags) String() string {
@@ -58,7 +59,8 @@ func main() {
 	// Setup the global flags.
 	p.FlagSet = flag.NewFlagSet("ship", flag.ExitOnError)
 	p.FlagSet.BoolVar(&debug, "d", false, "enable debug logging")
-	p.FlagSet.Var(&capabilitiesAllowedList, "pcaps", "Check for capabilities allowed.")
+	p.FlagSet.BoolVar(&noCapabilitiesAllowed, "nopcaps", false, "Check, that no kernel capabilities is granted")
+	p.FlagSet.Var(&capabilitiesAllowedList, "pcaps", "Check, that only the given kernel capabilities granted.")
 
 	// Set the before function.
 	p.Before = func(ctx context.Context) error {
@@ -74,6 +76,11 @@ func main() {
 	p.Action = func(ctx context.Context, args []string) error {
 
 		var errorString string = ""
+
+		if len(capabilitiesAllowedList) > 0 {
+			sort.Strings(capabilitiesAllowedList)
+		}
+
 		// Container Runtime
 		runtime := proc.GetContainerRuntime(0, 0)
 		fmt.Printf("Container Runtime: %s\n", runtime)
@@ -116,12 +123,16 @@ func main() {
 					fmt.Printf("\t%s -> %s\n", k, strings.Join(v, " "))
 				}
 			}
-			if len(capabilitiesAllowedList) > 0 {
-				for captype, capability := range caps {
-					if captype == "BOUNDING" {
-						for _, singleCap := range capability {
-							if !contains(capabilitiesAllowedList, singleCap) {
-								errorString += "capability " + singleCap + " is not allowed.\n"
+			if noCapabilitiesAllowed {
+				errorString = "Capabilities found"
+			} else {
+				if len(capabilitiesAllowedList) > 0 {
+					for captype, capability := range caps {
+						if captype == "BOUNDING" {
+							for _, singleCap := range capability {
+								if !contains(capabilitiesAllowedList, singleCap) {
+									errorString += "capability " + singleCap + " is not allowed.\n"
+								}
 							}
 						}
 					}
