@@ -1,23 +1,17 @@
 package main
 
 import (
-	"context"
-	"errors"
 	"flag"
 	"fmt"
-	"net/http"
+	"github.com/sanddorn/checkCapabilities/dockersocket"
+	"github.com/sirupsen/logrus"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"syscall"
 	"time"
 
-	"github.com/genuinetools/pkg/cli"
 	"github.com/jessfraz/bpfd/proc"
-	"github.com/sanddorn/checkcapabilities/version"
-	"github.com/sirupsen/logrus"
-	"github.com/tv42/httpunix"
 	"golang.org/x/sys/unix"
 )
 
@@ -47,185 +41,112 @@ func contains(s []string, searchterm string) bool {
 }
 
 func main() {
-	// Create a new cli program.
-	p := cli.NewProgram()
-	p.Name = "checkcapabilities"
-	p.Description = "Check for capabilities "
-
-	// Set the GitCommit and Version.
-	p.GitCommit = version.GITCOMMIT
-	p.Version = version.VERSION
 
 	// Setup the global flags.
-	p.FlagSet = flag.NewFlagSet("ship", flag.ExitOnError)
-	p.FlagSet.BoolVar(&debug, "d", false, "enable debug logging")
-	p.FlagSet.BoolVar(&noCapabilitiesAllowed, "nopcaps", false, "Check, that no kernel capabilities is granted")
-	p.FlagSet.Var(&capabilitiesAllowedList, "pcaps", "Check, that only the given kernel capabilities granted.")
 
-	// Set the before function.
-	p.Before = func(ctx context.Context) error {
-		// Set the log level.
-		if debug {
-			logrus.SetLevel(logrus.DebugLevel)
-		}
+	var FlagSet = flag.NewFlagSet("ship", flag.ExitOnError)
+	FlagSet.BoolVar(&debug, "d", false, "enable debug logging")
+	FlagSet.BoolVar(&noCapabilitiesAllowed, "nopcaps", false, "Check, that no kernel capabilities is granted")
+	FlagSet.Var(&capabilitiesAllowedList, "pcaps", "Check, that only the given kernel capabilities granted.")
 
-		return nil
+	if err := FlagSet.Parse(os.Args[1:]); err != nil {
+		os.Exit(2)
 	}
 
-	// Set the main program action.
-	p.Action = func(ctx context.Context, args []string) error {
+	if debug {
+		logrus.SetLevel(logrus.DebugLevel)
+	}
 
-		var errorString string = ""
+	var errorString = ""
 
-		if len(capabilitiesAllowedList) > 0 {
-			sort.Strings(capabilitiesAllowedList)
-		}
+	// Docker.sock
+	socketsChannel := make(chan string, 10)
+	go dockersocket.GetValidSockets("/", socketsChannel)
 
-		// Container Runtime
-		runtime := proc.GetContainerRuntime(0, 0)
-		fmt.Printf("Container Runtime: %s\n", runtime)
+	if len(capabilitiesAllowedList) > 0 {
+		sort.Strings(capabilitiesAllowedList)
+	}
 
-		// Namespaces
-		namespaces := []string{"pid"}
-		fmt.Println("Has Namespaces:")
-		for _, namespace := range namespaces {
-			ns, err := proc.HasNamespace(namespace)
-			if err != nil {
-				fmt.Printf("\t%s: error -> %v\n", namespace, err)
-				continue
-			}
-			fmt.Printf("\t%s: %t\n", namespace, ns)
-		}
+	// Container Runtime
+	runtime := proc.GetContainerRuntime(0, 0)
+	fmt.Printf("Container Runtime: %s\n", runtime)
 
-		// User Namespaces
-		userNS, userMappings := proc.GetUserNamespaceInfo(0)
-		fmt.Printf("\tuser: %t\n", userNS)
-		if len(userMappings) > 0 {
-			fmt.Println("User Namespace Mappings:")
-			for _, userMapping := range userMappings {
-				fmt.Printf("\tContainer -> %d\tHost -> %d\tRange -> %d\n", userMapping.ContainerID, userMapping.HostID, userMapping.Range)
-			}
-		}
-
-		// AppArmor Profile
-		aaprof := proc.GetAppArmorProfile(0)
-		fmt.Printf("AppArmor Profile: %s\n", aaprof)
-
-		// Capabilities
-		caps, err := proc.GetCapabilities(0)
+	// Namespaces
+	namespaces := []string{"pid"}
+	fmt.Println("Has Namespaces:")
+	for _, namespace := range namespaces {
+		ns, err := proc.HasNamespace(namespace)
 		if err != nil {
-			logrus.Warnf("getting capabilities failed: %v", err)
+			fmt.Printf("\t%s: error -> %v\n", namespace, err)
+			continue
 		}
-		if len(caps) > 0 {
-			fmt.Println("Capabilities:")
-			for k, v := range caps {
-				if len(v) > 0 {
-					fmt.Printf("\t%s -> %s\n", k, strings.Join(v, " "))
-				}
+		fmt.Printf("\t%s: %t\n", namespace, ns)
+	}
+
+	// User Namespaces
+	userNS, userMappings := proc.GetUserNamespaceInfo(0)
+	fmt.Printf("\tuser: %t\n", userNS)
+	if len(userMappings) > 0 {
+		fmt.Println("User Namespace Mappings:")
+		for _, userMapping := range userMappings {
+			fmt.Printf("\tContainer -> %d\tHost -> %d\tRange -> %d\n", userMapping.ContainerID, userMapping.HostID, userMapping.Range)
+		}
+	}
+
+	// AppArmor Profile
+	aaprof := proc.GetAppArmorProfile(0)
+	fmt.Printf("AppArmor Profile: %s\n", aaprof)
+
+	// Capabilities
+	caps, err := proc.GetCapabilities(0)
+	if err != nil {
+		fmt.Printf("getting capabilities failed: %v\n", err)
+	}
+	if len(caps) > 0 {
+		fmt.Println("Capabilities:")
+		for k, v := range caps {
+			if len(v) > 0 {
+				fmt.Printf("\t%s -> %s\n", k, strings.Join(v, " "))
 			}
-			if noCapabilitiesAllowed {
-				errorString = "Capabilities found"
-			} else {
-				if len(capabilitiesAllowedList) > 0 {
-					for captype, capability := range caps {
-						if captype == "BOUNDING" {
-							for _, singleCap := range capability {
-								if !contains(capabilitiesAllowedList, singleCap) {
-									errorString += "capability " + singleCap + " is not allowed.\n"
-								}
+		}
+		if noCapabilitiesAllowed {
+			errorString = "Capabilities found"
+		} else {
+			if len(capabilitiesAllowedList) > 0 {
+				for captype, capability := range caps {
+					if captype == "BOUNDING" {
+						for _, singleCap := range capability {
+							if !contains(capabilitiesAllowedList, singleCap) {
+								errorString += "capability " + singleCap + " is not allowed.\n"
 							}
 						}
 					}
 				}
 			}
 		}
-
-		// Seccomp
-		seccompMode := proc.GetSeccompEnforcingMode(0)
-		fmt.Printf("Seccomp: %s\n", seccompMode)
-
-		seccompIter()
-
-		// Docker.sock
-		fmt.Println("Looking for Docker.sock")
-		getValidSockets("/")
-
-		if errorString != "" {
-			return errors.New(errorString)
-		}
-		return nil
 	}
 
-	// Run our program.
-	p.Run()
-}
+	// This is dangerous if in an uncontained environment and as user root.
 
-func walkpath(path string, info os.FileInfo, err error) error {
-	if err != nil {
-		if debug {
-			fmt.Println(err)
-		}
+	// Seccomp
+
+	seccompMode := proc.GetSeccompEnforcingMode(0)
+	fmt.Printf("Seccomp: %s\n", seccompMode)
+	if os.Getegid() == 0 && runtime == "not-found" {
+		fmt.Printf("Not running check on syscalls as root in a non-containerized environment")
 	} else {
-		switch mode := info.Mode(); {
-		case mode&os.ModeSocket != 0:
-			if debug {
-				fmt.Println("Valid Socket: " + path)
-			}
-			resp, err := checkSock(path)
-			if err == nil {
-				if resp.StatusCode >= 200 && resp.StatusCode <= 299 {
-					fmt.Println("Valid Docker Socket: " + path)
-				} else {
-					if debug {
-						fmt.Println("Invalid Docker Socket: " + path)
-					}
-				}
-				defer resp.Body.Close()
-			} else {
-				if debug {
-					fmt.Println("Invalid Docker Socket: " + path)
-				}
-			}
-		default:
-			if debug {
-				fmt.Println("Invalid Socket: " + path)
-			}
-		}
+		seccompIter()
 	}
-	return nil
-}
+	fmt.Println("Docker Sockets:")
+	for path := range socketsChannel {
+		fmt.Printf("Valid Docker socket: %s\n", path)
+	}
 
-func getValidSockets(startPath string) ([]string, error) {
-	err := filepath.Walk(startPath, walkpath)
-	if err != nil {
-		if debug {
-			fmt.Println(err)
-		}
-		return nil, err
+	if errorString != "" {
+		fmt.Println(errorString)
+		os.Exit(1)
 	}
-	return nil, nil
-}
 
-func checkSock(path string) (*http.Response, error) {
-
-	if debug {
-		fmt.Println("[-] Checking Sock for HTTP: " + path)
-	}
-	u := &httpunix.Transport{
-		DialTimeout:           100 * time.Millisecond,
-		RequestTimeout:        1 * time.Second,
-		ResponseHeaderTimeout: 1 * time.Second,
-	}
-	u.RegisterLocation("dockerd", path)
-	var client = http.Client{
-		Transport: u,
-	}
-	resp, err := client.Get("http+unix://dockerd/info")
-
-	if resp == nil {
-		return nil, err
-	}
-	return resp, nil
 }
 
 func seccompIter() {
