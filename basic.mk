@@ -145,7 +145,6 @@ bump-version: ## Bump the version in the version file. Set BUMP to [ patch | maj
 	sed -i s/$(VERSION)/$(NEW_VERSION)/g README.md
 	git add VERSION.txt README.md
 	git commit -vsam "Bump version to $(NEW_VERSION)"
-	@echo "Run make tag to create and push the tag for new version $(NEW_VERSION)"
 
 .PHONY: snapshot-version
 BUMP := patch
