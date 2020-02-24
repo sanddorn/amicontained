@@ -168,6 +168,7 @@ tag: ## Create a new git tag to prepare to build a release.
 REGISTRY := sanddorn
 .PHONY: image
 image: ## Create the docker image from the Dockerfile.
+	@docker build --rm --force-rm -t $(REGISTRY)/$(NAME):${VERSION}-debug . -f Dockerfile-DEBUG
 	@docker build --rm --force-rm -t $(REGISTRY)/$(NAME):${VERSION} .
 
 .PHONY: AUTHORS

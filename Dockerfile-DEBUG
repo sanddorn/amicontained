@@ -24,10 +24,10 @@ RUN set -x \
 	&& rm -rf /go \
 	&& echo "Build complete."
 
-FROM scratch
+FROM alpine:latest
 
-COPY --from=builder /usr/bin/checkcapabilities /checkcapabilities
-#COPY --from=builder /etc/ssl/certs/ /etc/ssl/certs
+COPY --from=builder /usr/bin/checkcapabilities /usr/bin/checkcapabilities
+COPY --from=builder /etc/ssl/certs/ /etc/ssl/certs
 
-ENTRYPOINT [ "/checkcapabilities" ]
+ENTRYPOINT [ "checkcapabilities" ]
 CMD [ "--help" ]

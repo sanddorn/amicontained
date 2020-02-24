@@ -13,9 +13,4 @@ jobs:
         uses: docker://golang:latest
         with:
           args: make release
-      - name: update release body
-        uses: ncipollo/release-action@v1
-        with:
-          artifacts: "cross/*"
-          bodyFile: "Release.md"
-          token: ${{ secrets.GITHUB_TOKEN }}
+
