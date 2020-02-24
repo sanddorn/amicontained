@@ -1,4 +1,6 @@
-module github.com/sanddorn/checkcapabilities
+module checkcapabilities
+
+replace github.com/sanddorn/checkcapabilities/dockersocket => ./dockersocket
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect

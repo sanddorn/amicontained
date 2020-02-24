@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/sanddorn/checkCapabilities/dockersocket"
 	"github.com/sirupsen/logrus"
 	"os"
 	"sort"
@@ -61,7 +60,7 @@ func main() {
 
 	// Docker.sock
 	socketsChannel := make(chan string, 10)
-	go dockersocket.GetValidSockets("/", socketsChannel)
+	go GetValidSockets("/", socketsChannel)
 
 	if len(capabilitiesAllowedList) > 0 {
 		sort.Strings(capabilitiesAllowedList)

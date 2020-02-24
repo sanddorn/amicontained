@@ -1,4 +1,4 @@
-package dockersocket
+package main
 
 import (
 	"github.com/sirupsen/logrus"
