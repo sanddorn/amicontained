@@ -59,8 +59,9 @@ func walkpath(path string, info os.FileInfo, err error) error {
 	return nil
 }
 
-/**
- * Parse a path from startPath an collect all valid docker sockets, push the path to socketsChannel. */
+// GetValidSockets searches for valid docker-sockets.
+// Search starts from startPath
+// Values are returned through socktesChannel
 func GetValidSockets(startPath string, socketsChannel chan string) {
 	channel = socketsChannel
 	err := filepath.Walk(startPath, walkpath)
