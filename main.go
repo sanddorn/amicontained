@@ -149,6 +149,7 @@ func main() {
 	}
 
 	logrus.Debug("Exiting ok")
+	os.Exit(0)
 }
 
 func seccompIter() {
