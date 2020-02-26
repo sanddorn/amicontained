@@ -136,6 +136,7 @@ func main() {
 	} else {
 		seccompIter()
 	}
+
 	fmt.Println("Docker Sockets:")
 	for path := range socketsChannel {
 		fmt.Printf("Valid Docker socket: %s\n", path)
@@ -143,9 +144,11 @@ func main() {
 
 	if errorString != "" {
 		fmt.Println(errorString)
+		logrus.Debug("Exiting with error")
 		os.Exit(1)
 	}
 
+	logrus.Debug("Exiting ok")
 }
 
 func seccompIter() {
