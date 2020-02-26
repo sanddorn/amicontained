@@ -3,15 +3,14 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/jessfraz/bpfd/proc"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 	"os"
 	"sort"
 	"strings"
 	"syscall"
 	"time"
-
-	"github.com/jessfraz/bpfd/proc"
-	"golang.org/x/sys/unix"
 )
 
 type arrayFlags []string
@@ -21,6 +20,10 @@ var (
 	capabilitiesAllowedList arrayFlags
 	noCapabilitiesAllowed   bool
 	checkDockerSocket       bool
+	checkNamespaces         bool
+	checkApparmor           bool
+	checkSeccomp            bool
+	checkSyscalls           bool
 )
 
 func (i *arrayFlags) String() string {
@@ -47,9 +50,13 @@ func main() {
 	var FlagSet = flag.NewFlagSet("ship", flag.ExitOnError)
 	FlagSet.BoolVar(&debug, "d", false, "enable debug logging")
 	FlagSet.BoolVar(&noCapabilitiesAllowed, "nopcaps", false, "Check, that no kernel capabilities is granted")
+	FlagSet.Var(&capabilitiesAllowedList, "pcaps", "Check, that only the given kernel capabilities granted.")
 
 	FlagSet.BoolVar(&checkDockerSocket, "dockersockets", false, "Search for open docker sockets")
-	FlagSet.Var(&capabilitiesAllowedList, "pcaps", "Check, that only the given kernel capabilities granted.")
+	FlagSet.BoolVar(&checkNamespaces, "namespaces", false, "Check Namespaces")
+	FlagSet.BoolVar(&checkApparmor, "apparmor", false, "Check AppArmor")
+	FlagSet.BoolVar(&checkSeccomp, "seccomp", false, "Check Seccomp Profile")
+	FlagSet.BoolVar(&checkSyscalls, "syscalls", false, "Check for allowed syscalls")
 
 	if err := FlagSet.Parse(os.Args[1:]); err != nil {
 		os.Exit(2)
@@ -78,31 +85,33 @@ func main() {
 	fmt.Printf("Container Runtime: %s\n", runtime)
 
 	// Namespaces
-	namespaces := []string{"pid"}
-	fmt.Println("Has Namespaces:")
-	for _, namespace := range namespaces {
-		ns, err := proc.HasNamespace(namespace)
-		if err != nil {
-			fmt.Printf("\t%s: error -> %v\n", namespace, err)
-			continue
+	if checkNamespaces {
+		namespaces := []string{"pid"}
+		fmt.Println("Has Namespaces:")
+		for _, namespace := range namespaces {
+			ns, err := proc.HasNamespace(namespace)
+			if err != nil {
+				fmt.Printf("\t%s: error -> %v\n", namespace, err)
+				continue
+			}
+			fmt.Printf("\t%s: %t\n", namespace, ns)
 		}
-		fmt.Printf("\t%s: %t\n", namespace, ns)
+		// User Namespaces
+		userNS, userMappings := proc.GetUserNamespaceInfo(0)
+		fmt.Printf("\tuser: %t\n", userNS)
+		if len(userMappings) > 0 {
+			fmt.Println("User Namespace Mappings:")
+			for _, userMapping := range userMappings {
+				fmt.Printf("\tContainer -> %d\tHost -> %d\tRange -> %d\n", userMapping.ContainerID, userMapping.HostID, userMapping.Range)
+			}
+		}
 	}
 
-	// User Namespaces
-	userNS, userMappings := proc.GetUserNamespaceInfo(0)
-	fmt.Printf("\tuser: %t\n", userNS)
-	if len(userMappings) > 0 {
-		fmt.Println("User Namespace Mappings:")
-		for _, userMapping := range userMappings {
-			fmt.Printf("\tContainer -> %d\tHost -> %d\tRange -> %d\n", userMapping.ContainerID, userMapping.HostID, userMapping.Range)
-		}
+	if checkApparmor {
+		// AppArmor Profile
+		aaprof := proc.GetAppArmorProfile(0)
+		fmt.Printf("AppArmor Profile: %s\n", aaprof)
 	}
-
-	// AppArmor Profile
-	aaprof := proc.GetAppArmorProfile(0)
-	fmt.Printf("AppArmor Profile: %s\n", aaprof)
-
 	// Capabilities
 	caps, err := proc.GetCapabilities(0)
 	if err != nil {
@@ -133,17 +142,14 @@ func main() {
 	}
 
 	// This is dangerous if in an uncontained environment and as user root.
-
 	// Seccomp
-
-	seccompMode := proc.GetSeccompEnforcingMode(0)
-	fmt.Printf("Seccomp: %s\n", seccompMode)
-	if os.Getegid() == 0 && runtime == "not-found" {
-		fmt.Printf("Not running check on syscalls as root in a non-containerized environment")
-	} else {
-		seccompIter()
+	if checkSeccomp {
+		seccompMode := proc.GetSeccompEnforcingMode(0)
+		fmt.Printf("Seccomp: %s\n", seccompMode)
+		if checkSyscalls {
+			seccompIter()
+		}
 	}
-
 	if checkDockerSocket {
 		fmt.Println("Docker Sockets:")
 		for path := range socketsChannel {
