@@ -20,6 +20,7 @@ var (
 	debug                   bool
 	capabilitiesAllowedList arrayFlags
 	noCapabilitiesAllowed   bool
+	checkDockerSocket       bool
 )
 
 func (i *arrayFlags) String() string {
@@ -46,6 +47,8 @@ func main() {
 	var FlagSet = flag.NewFlagSet("ship", flag.ExitOnError)
 	FlagSet.BoolVar(&debug, "d", false, "enable debug logging")
 	FlagSet.BoolVar(&noCapabilitiesAllowed, "nopcaps", false, "Check, that no kernel capabilities is granted")
+
+	FlagSet.BoolVar(&checkDockerSocket, "dockersockets", false, "Search for open docker sockets")
 	FlagSet.Var(&capabilitiesAllowedList, "pcaps", "Check, that only the given kernel capabilities granted.")
 
 	if err := FlagSet.Parse(os.Args[1:]); err != nil {
@@ -60,7 +63,11 @@ func main() {
 
 	// Docker.sock
 	socketsChannel := make(chan string, 10)
-	go GetValidSockets("/", socketsChannel)
+	if checkDockerSocket {
+		go GetValidSockets("/", socketsChannel)
+	} else {
+		close(socketsChannel)
+	}
 
 	if len(capabilitiesAllowedList) > 0 {
 		sort.Strings(capabilitiesAllowedList)
@@ -137,9 +144,11 @@ func main() {
 		seccompIter()
 	}
 
-	fmt.Println("Docker Sockets:")
-	for path := range socketsChannel {
-		fmt.Printf("Valid Docker socket: %s\n", path)
+	if checkDockerSocket {
+		fmt.Println("Docker Sockets:")
+		for path := range socketsChannel {
+			fmt.Printf("Valid Docker socket: %s\n", path)
+		}
 	}
 
 	if errorString != "" {
@@ -155,8 +164,6 @@ func main() {
 func seccompIter() {
 	allowed := []string{}
 	blocked := []string{}
-
-	//fmt.Println("Checking available syscalls...")
 
 	for id := 0; id <= unix.SYS_RSEQ; id++ {
 		// these cause a hang, so just skip
